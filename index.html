@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>brain-map</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07090d; overflow: hidden;
+    font-family: -apple-system, "SF Pro Text", Inter, sans-serif; }
+  canvas { display: block; cursor: grab; }
+  canvas.drag { cursor: grabbing; }
+  #bar {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    display: flex; gap: 9px; align-items: center; z-index: 10;
+    font-size: 13px; color: #9ca3af; background: rgba(10,13,18,.85);
+    border: 1px solid #1f2937; border-radius: 999px; padding: 8px 14px;
+    user-select: none; white-space: nowrap;
+  }
+  #bar input {
+    background: #0d1320; color: #e5e7eb; border: 1px solid #283548;
+    border-radius: 999px; padding: 6px 12px; font: inherit; outline: none; width: 150px;
+  }
+  #bar button {
+    background: #111827; color: #d1d5db; border: 1px solid #283548;
+    border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer;
+  }
+  #bar button:hover { background: #1c2a3f; }
+  #count { color: #34d399; font-variant-numeric: tabular-nums; }
+  #legend {
+    position: fixed; right: 16px; top: 16px; z-index: 10;
+    font-size: 12.5px; color: #cbd5e1; background: rgba(10,13,18,.85);
+    border: 1px solid #1f2937; border-radius: 12px; padding: 10px 14px; user-select: none;
+  }
+  #legend .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  #legend .dot { width: 9px; height: 9px; border-radius: 50%; }
+  #upsell {
+    position: fixed; left: 16px; bottom: 16px; z-index: 10;
+    font-size: 12.5px; color: #cbd5e1; background: rgba(10,13,18,.9);
+    border: 1px solid #34d399; border-radius: 12px; padding: 10px 14px;
+    text-decoration: none; line-height: 1.5; max-width: 280px;
+  }
+  #upsell b { color: #34d399; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="legend"></div>
+<div id="bar">
+  <span id="count">0 notes</span>
+  <input id="q" placeholder="Search… (Enter)">
+  <button id="re">⟲ Replay</button>
+</div>
+<a id="upsell" href="https://www.skool.com/aiworkshop" target="_blank">
+  ⚡ <b>Powered by AI Workshop OS</b><br>
+  Want the full Brain Studio? 3D mode, guided tours, note previews, path finder, white-label → <b>join free</b>
+</a>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="graph-data.js"></script>
+<script>
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+const DPR = Math.min(devicePixelRatio || 1, 2);
+let W, H;
+function resize() {
+  W = innerWidth; H = innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+}
+resize(); addEventListener('resize', resize);
+
+const STYLE = GRAPH.groups;
+const nodes = GRAPH.nodes.map((n, i) => ({ ...n, i, x: 0, y: 0 }));
+const links = GRAPH.links.map(l => ({ source: l.s, target: l.t }));
+const deg = new Array(nodes.length).fill(0);
+for (const l of GRAPH.links) { deg[l.s]++; deg[l.t]++; }
+for (const n of nodes) n.r = Math.min(STYLE[n.g].r * 2.2, STYLE[n.g].r * (0.8 + Math.sqrt(deg[n.i]) * 0.15));
+let t = 600, prevG = null;
+for (const n of nodes) {
+  if (n.g !== prevG) { t += STYLE[n.g].pause ?? 500; prevG = n.g; }
+  t += STYLE[n.g].pace ?? 60; n.t = t;
+}
+const nbr = new Map();
+for (const l of links) {
+  (nbr.get(l.source) || nbr.set(l.source, []).get(l.source)).push(l.target);
+  (nbr.get(l.target) || nbr.set(l.target, []).get(l.target)).push(l.source);
+}
+
+let active = [], activeLinks = [], nextIdx = 0, born = new Set();
+let clock = 0, last = performance.now(), done = false;
+let view = { x: 0, y: 0, k: 1.5 }, userCam = false;
+let selected = null, hover = null;
+
+const sim = d3.forceSimulation([])
+  .force('link', d3.forceLink([]).id(d => d.i).distance(30).strength(0.5))
+  .force('charge', d3.forceManyBody().strength(d => -(15 + d.r * 6)).distanceMax(450))
+  .force('center', d3.forceCenter(0, 0).strength(0.05))
+  .force('collide', d3.forceCollide(d => d.r + 3.5).strength(0.9))
+  .force('gx', d3.forceX(0).strength(0.03))
+  .force('gy', d3.forceY(0).strength(0.03))
+  .alphaDecay(0.012).stop();
+
+function activate(time) {
+  let changed = false;
+  while (nextIdx < nodes.length && nodes[nextIdx].t <= time) {
+    const n = nodes[nextIdx];
+    const a = (nbr.get(n.i) || []).map(j => nodes[j]).find(m => born.has(m.i));
+    const ang = Math.random() * 7;
+    n.x = a ? a.x + Math.cos(ang) * 24 : Math.cos(ang) * 30;
+    n.y = a ? a.y + Math.sin(ang) * 24 : Math.sin(ang) * 30;
+    active.push(n); born.add(n.i); nextIdx++; changed = true;
+  }
+  if (changed) {
+    activeLinks = links.filter(l => {
+      const s = typeof l.source === 'object' ? l.source.i : l.source;
+      const tt = typeof l.target === 'object' ? l.target.i : l.target;
+      return born.has(s) && born.has(tt);
+    });
+    sim.nodes(active);
+    sim.force('link').links(activeLinks);
+    sim.alpha(Math.min(0.5, 0.2 + active.length / 800));
+  }
+}
+const wp = (sx, sy) => [(sx - W / 2) / view.k + view.x, (sy - H / 2) / view.k + view.y];
+function hit(sx, sy) {
+  const [wx, wy] = wp(sx, sy);
+  for (let i = active.length - 1; i >= 0; i--) {
+    const n = active[i], r = Math.max(n.r, 5 / view.k) + 3 / view.k;
+    if ((n.x - wx) ** 2 + (n.y - wy) ** 2 <= r * r) return n;
+  }
+  return null;
+}
+
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, W, H);
+  if (active.length && !userCam) {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const n of active) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
+    const k = Math.min(2, Math.min(W / (x1 - x0 + 220), H / (y1 - y0 + 220)));
+    view.k += (k - view.k) * 0.05;
+    view.x += ((x0 + x1) / 2 - view.x) * 0.07;
+    view.y += ((y0 + y1) / 2 - view.y) * 0.07;
+  }
+  ctx.translate(W / 2, H / 2); ctx.scale(view.k, view.k); ctx.translate(-view.x, -view.y);
+
+  const focus = selected || hover;
+  let lit = null;
+  if (focus) { lit = new Set([focus.i]); for (const j of nbr.get(focus.i) || []) if (born.has(j)) lit.add(j); }
+
+  ctx.lineWidth = 0.6 / view.k;
+  for (const l of activeLinks) {
+    const on = lit && lit.has(l.source.i) && lit.has(l.target.i);
+    ctx.strokeStyle = lit ? (on ? 'rgba(120,160,210,.7)' : 'rgba(90,110,140,.05)') : 'rgba(90,110,140,.28)';
+    ctx.beginPath(); ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); ctx.stroke();
+  }
+  for (const n of active) {
+    const dim = lit && !lit.has(n.i);
+    ctx.globalAlpha = dim ? 0.12 : 1;
+    ctx.fillStyle = STYLE[n.g].c;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // labels: focus set + biggest nodes
+  ctx.textAlign = 'center';
+  ctx.font = `500 ${11 / view.k}px -apple-system, sans-serif`;
+  ctx.fillStyle = 'rgba(229,231,235,.85)';
+  for (const n of active) {
+    const show = lit ? lit.has(n.i) : view.k * n.r > 8;
+    if (show) ctx.fillText(n.label, n.x, n.y - n.r - 5 / view.k);
+  }
+  document.getElementById('count').textContent = `${active.length} notes · ${activeLinks.length} links`;
+}
+function frame(now) {
+  clock += now - last; last = now;
+  if (!done) { activate(clock); if (nextIdx >= nodes.length) done = true; }
+  if (sim.alpha() > 0.004) sim.tick();
+  draw();
+  requestAnimationFrame(frame);
+}
+
+let panning = false, dragN = null, mx = 0, my = 0, moved = 0;
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  userCam = true;
+  const k2 = Math.max(0.1, Math.min(8, view.k * Math.exp(-e.deltaY * 0.0015)));
+  const [wx, wy] = wp(e.clientX, e.clientY);
+  view.x = wx - (e.clientX - W / 2) / k2;
+  view.y = wy - (e.clientY - H / 2) / k2;
+  view.k = k2;
+}, { passive: false });
+canvas.addEventListener('mousedown', e => {
+  moved = 0; mx = e.clientX; my = e.clientY;
+  dragN = hit(e.clientX, e.clientY);
+  if (dragN) { dragN.fx = dragN.x; dragN.fy = dragN.y; sim.alpha(0.2); }
+  else { panning = true; userCam = true; }
+  canvas.classList.add('drag');
+});
+addEventListener('mousemove', e => {
+  moved += Math.abs(e.clientX - mx) + Math.abs(e.clientY - my);
+  if (dragN) {
+    const [wx, wy] = wp(e.clientX, e.clientY);
+    dragN.fx = wx; dragN.fy = wy; sim.alpha(Math.max(sim.alpha(), 0.15));
+  } else if (panning) {
+    view.x -= (e.clientX - mx) / view.k;
+    view.y -= (e.clientY - my) / view.k;
+  } else hover = hit(e.clientX, e.clientY);
+  mx = e.clientX; my = e.clientY;
+});
+addEventListener('mouseup', e => {
+  if (moved < 5) { const n = hit(e.clientX, e.clientY); selected = n === selected ? null : n; }
+  if (dragN) { dragN.fx = null; dragN.fy = null; }
+  dragN = null; panning = false;
+  canvas.classList.remove('drag');
+});
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') selected = null;
+  if (e.key === 'r' || e.key === 'R') restart();
+});
+document.getElementById('q').addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Enter') {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) return;
+    const n = active.find(x => x.label.toLowerCase().includes(q));
+    if (n) { selected = n; userCam = true; view.x = n.x; view.y = n.y; view.k = Math.max(view.k, 2.2); }
+  }
+});
+function restart() {
+  active = []; activeLinks = []; nextIdx = 0; born = new Set();
+  clock = 0; done = false; selected = null; userCam = false;
+  view = { x: 0, y: 0, k: 1.5 };
+  sim.nodes([]); sim.force('link').links([]);
+}
+document.getElementById('re').onclick = restart;
+
+const legend = document.getElementById('legend');
+const counts = {};
+for (const n of nodes) counts[n.g] = (counts[n.g] || 0) + 1;
+for (const [g, st] of Object.entries(STYLE)) {
+  if (counts[g]) legend.innerHTML += `<div class="row"><span class="dot" style="background:${st.c}"></span>${st.name}</div>`;
+}
+restart();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
