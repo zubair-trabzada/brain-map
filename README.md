@@ -34,6 +34,27 @@ python3 ~/path/to/your/notes/.brain-map/serve.py
 - **Search** — find any note and fly to it
 - Auto-grouping and colors by folder; node size by connection count
 
+## How to use it
+
+Once it opens in your browser:
+
+| Action | How |
+|---|---|
+| Watch your brain grow | plays automatically on load — press **R** (or the ⟲ Replay button) to watch it again |
+| Move around | **drag** empty space to pan, **scroll** to zoom in and out |
+| See a note's connections | **click** any node — it and its links stay lit, everything else fades. Click again (or press **Esc**) to release |
+| Read what a node is | **hover** it to see its name |
+| Rearrange the graph | **grab and drag** any node — the physics follows |
+| Find a note | type in the **search box** and press **Enter** — the camera flies to it |
+| See what the colors mean | legend in the top-right corner (groups = your folders) |
+
+**Good to know:**
+
+- The terminal window is the server — keep it open while you explore, **Ctrl+C** to stop. Run the same command again anytime.
+- **Added or edited notes?** Just re-run the command — the graph regenerates from the current state of your folder in about a second.
+- **Graph looks sparse?** Connections come from `[[wikilinks]]` and markdown links between your notes. The more you link your notes, the denser and more alive the brain gets — folders with no links at all still show as a structural tree.
+- Everything runs 100% locally. Your notes never leave your machine.
+
 ## Want the full Brain Studio?
 
 ![Brain Studio — the full experience](assets/brain-studio.png)
