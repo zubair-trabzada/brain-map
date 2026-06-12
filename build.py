@@ -227,7 +227,7 @@ def build(vault, out, config):
                 "except OSError:\n"
                 "    srv = http.server.HTTPServer(('127.0.0.1', 0), http.server.SimpleHTTPRequestHandler)\n"
                 "port = srv.server_address[1]\n"
-                "print(f'brain-map -> http://localhost:{port}')\n"
+                "print(f'brain-map -> http://localhost:{port}', flush=True)\n"
                 "webbrowser.open(f'http://localhost:{port}')\n"
                 "srv.serve_forever()\n")
     mode = "AI Workshop OS layout" if aios else "generic folder grouping"
