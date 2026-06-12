@@ -222,8 +222,14 @@ def build(vault, out, config):
     with open(os.path.join(out, "serve.py"), "w") as f:
         f.write("import http.server, os, webbrowser\n"
                 "os.chdir(os.path.dirname(os.path.abspath(__file__)))\n"
-                "webbrowser.open('http://localhost:4710')\n"
-                "http.server.HTTPServer(('127.0.0.1', 4710), http.server.SimpleHTTPRequestHandler).serve_forever()\n")
+                "try:\n"
+                "    srv = http.server.HTTPServer(('127.0.0.1', 4710), http.server.SimpleHTTPRequestHandler)\n"
+                "except OSError:\n"
+                "    srv = http.server.HTTPServer(('127.0.0.1', 0), http.server.SimpleHTTPRequestHandler)\n"
+                "port = srv.server_address[1]\n"
+                "print(f'brain-map -> http://localhost:{port}')\n"
+                "webbrowser.open(f'http://localhost:{port}')\n"
+                "srv.serve_forever()\n")
     mode = "AI Workshop OS layout" if aios else "generic folder grouping"
     print(f"✓ {len(out_nodes)} notes · {len(out_links)} links · {mode}")
     print(f"✓ output: {out}")

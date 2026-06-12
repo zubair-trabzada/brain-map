@@ -8,7 +8,16 @@ Turn any folder of markdown notes into an interactive knowledge graph — watch 
 
 Works on any Obsidian vault, AI operating system, or plain folder of `.md` files. Connections come from `[[wikilinks]]` and relative markdown links; folders with no links still render as a clean structural tree.
 
-## Quick start (60 seconds)
+## One-command install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zubair-trabzada/brain-map/main/run.sh | bash -s -- ~/path/to/your/notes
+```
+
+Your brain opens at http://localhost:4710. No dependencies: Python 3 standard library and a browser.
+
+<details>
+<summary>Prefer to clone?</summary>
 
 ```bash
 git clone https://github.com/zubair-trabzada/brain-map
@@ -16,8 +25,7 @@ cd brain-map
 python3 build.py --vault ~/path/to/your/notes
 python3 ~/path/to/your/notes/.brain-map/serve.py
 ```
-
-That's it — your brain opens at http://localhost:4710. No dependencies, nothing installed: Python 3 standard library and a browser.
+</details>
 
 ## What you get
 
@@ -30,7 +38,7 @@ That's it — your brain opens at http://localhost:4710. No dependencies, nothin
 
 ![Brain Studio — the full experience](assets/brain-studio.png)
 
-The free version is the demo. The full **Brain Studio** (inside the [AI Workshop community](https://www.skool.com/aiworkshop)) adds:
+The free version is the demo. The full **Brain Studio** — exclusive to [AI Workshop](https://www.skool.com/aiworkshop) members — adds:
 
 - 🌌 **3D galaxy mode** with fly-through camera
 - 📖 **Note previews** — read your actual notes inside the graph
@@ -40,7 +48,7 @@ The free version is the demo. The full **Brain Studio** (inside the [AI Workshop
 - 🏷 **White-label branding** — put your client's logo on their business brain
 - ⚡ **One-command install as a Claude Code skill** (`/brain-map`)
 
-→ **[Join the community (free) to get it](https://www.skool.com/aiworkshop)**
+→ **[Join the AI Workshop to get it](https://www.skool.com/aiworkshop)**
 
 ---
 
